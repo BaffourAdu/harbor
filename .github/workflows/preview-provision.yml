@@ -1,0 +1,35 @@
+name: preview-provision
+on:
+  pull_request:
+    types: [opened, edited, reopened, ready_for_review]
+jobs:
+  harbor-provision:
+    if: |
+      github.event.pull_request.draft == false &&
+      (
+          (
+              contains(github.event.pull_request.title, '[harbor]') &&
+              contains(fromJson('["opened", "reopened", "synchronize", "ready_for_review"]'), github.event.action)
+          ) ||
+          (
+              github.event.action == 'edited' &&
+              contains(github.event.pull_request.title, '[harbor]') &&
+              github.event.changes.title.from &&
+              !contains(github.event.changes.title.from, '[harbor]')
+          )
+      )
+    runs-on: ubuntu-latest
+    container:
+      image: kirschbaumdevelopment/laravel-test-runner:8.1
+    steps:
+      - name: Install Harbor via Composer
+        run: composer global require mehrancodes/laravel-harbor -q
+      - name: Start Provisioning
+        env:
+          FORGE_TOKEN: ${{ secrets.FORGE_API_TOKEN }}
+          FORGE_SERVER: ${{ secrets.FORGE_SERVER_ID }}
+          FORGE_GIT_REPOSITORY: ${{ github.repository }}
+          FORGE_GIT_BRANCH: ${{ github.head_ref }}
+          FORGE_DOMAIN: laravel-harbor.com
+          SUBDOMAIN_NAME: pr-${{ github.event.number }}
+        run: harbor provision
